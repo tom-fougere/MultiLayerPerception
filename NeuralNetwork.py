@@ -348,26 +348,6 @@ class MultiLayerPerceptron:
 
         return predictions
 
-        """
-        Checks if backward_propagation_n computes correctly the gradient of the cost output by forward_propagation_n
-
-        Arguments:
-        dA -- post-activation gradient for current layer l
-        cache -- tuple of values (linear_cache, activation_cache) we store for computing backward propagation efficiently
-        activation -- the activation to be used in this layer, stored as a text string: "sigmoid" or "relu"
-
-        Returns:
-        dA_prev -- Gradient of the cost with respect to the activation (of the previous layer l-1), same shape as A_prev
-        dW -- Gradient of the cost with respect to W (current layer l), same shape as W
-        db -- Gradient of the cost with respect to b (current layer l), same shape as b
-        """
-        linear_cache, activation_cache = cache
-
-        dZ = relu_backward(dA, activation_cache)
-        dA_prev, dW, db = linear_backward(dZ, linear_cache)
-
-        return dA_prev, dW, db
-
 
 if __name__ == '__main__':
 
