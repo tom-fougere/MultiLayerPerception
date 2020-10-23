@@ -4,7 +4,24 @@ from lib.Utils.ActivationFunctions import *
 
 
 def initialize_weights(layers_dims, initialization):
-    # Initialize parameters dictionary.
+    """
+    Initialize Weights and Bias for neural networks
+
+    Arguments:
+    layer_dims -- python array (list) containing the size of each layer including the input and the output.
+    initialization -- method to initialize the data, stored as a text string
+                      Choice: "random", "he"
+
+    Returns:
+    W -- python dictionary containing the weights of each layer
+            1 -- weight matrix of shape (layers_dims[1], layers_dims[0])
+            ...
+            WL -- weight matrix of shape (layers_dims[L], layers_dims[L-1])
+    b -- python dictionary containing the bias of each layer
+            1 -- weight matrix of shape (layers_dims[1], 1)
+            ...
+            WL -- weight matrix of shape (layers_dims[L], 1)
+    """
     if initialization == "random":
         W, b = initialize_parameters_random(layers_dims)
     elif initialization == "he":
@@ -15,22 +32,28 @@ def initialize_weights(layers_dims, initialization):
 
 def initialize_parameters_random(layers_dims):
     """
+    Initialize randomly Weights and Bias for neural networks
+
     Arguments:
     layer_dims -- python array (list) containing the size of each layer including the input and the output.
+    initialization -- method of initialize the data, stored as a text string
+                      Choice: random, he
 
     Returns:
-    parameters -- python dictionary containing your parameters "W1", "b1", ..., "WL", "bL":
-                    W1 -- weight matrix of shape (layers_dims[1], layers_dims[0])
-                    b1 -- bias vector of shape (layers_dims[1], 1)
-                    ...
-                    WL -- weight matrix of shape (layers_dims[L], layers_dims[L-1])
-                    bL -- bias vector of shape (layers_dims[L], 1)
+    W -- python dictionary containing the weights of each layer
+            1 -- weight matrix of shape (layers_dims[1], layers_dims[0])
+            ...
+            WL -- weight matrix of shape (layers_dims[L], layers_dims[L-1])
+    b -- python dictionary containing the bias of each layer
+            1 -- weight matrix of shape (layers_dims[1], 1)
+            ...
+            WL -- weight matrix of shape (layers_dims[L], 1)
     """
-
     W = dict()
     b = dict()
     number_of_layers = len(layers_dims)  # integer representing the number of layers
 
+    np.random.seed(7)
     for i_layer in range(1, number_of_layers):
         W[i_layer] = np.random.randn(layers_dims[i_layer], layers_dims[i_layer - 1]) * 0.01
         b[i_layer] = np.zeros((layers_dims[i_layer], 1))
@@ -40,18 +63,26 @@ def initialize_parameters_random(layers_dims):
 
 def initialize_parameters_he(layers_dims):
     """
+    Initialize Weights and Bias for neural networks using the He Initialization
+    This is named for the first author of He et al., 2015.
+    This is quite similar to Xavier initialization
+    W_l = sqrt(2./layers_dims[l-1]
+
     Arguments:
-    layer_dims -- python array (list) containing the size of each layer.
+    layer_dims -- python array (list) containing the size of each layer including the input and the output.
+    initialization -- method of initialize the data, stored as a text string
+                      Choice: random, he
 
     Returns:
-    parameters -- python dictionary containing your parameters "W1", "b1", ..., "WL", "bL":
-                    W1 -- weight matrix of shape (layers_dims[1], layers_dims[0])
-                    b1 -- bias vector of shape (layers_dims[1], 1)
-                    ...
-                    WL -- weight matrix of shape (layers_dims[L], layers_dims[L-1])
-                    bL -- bias vector of shape (layers_dims[L], 1)
+    W -- python dictionary containing the weights of each layer
+            1 -- weight matrix of shape (layers_dims[1], layers_dims[0])
+            ...
+            WL -- weight matrix of shape (layers_dims[L], layers_dims[L-1])
+    b -- python dictionary containing the bias of each layer
+            1 -- weight matrix of shape (layers_dims[1], 1)
+            ...
+            WL -- weight matrix of shape (layers_dims[L], 1)
     """
-
     W = dict()
     b = dict()
     number_of_layers = len(layers_dims)  # integer representing the number of layers
@@ -67,22 +98,22 @@ class MultiLayerPerceptron:
 
     def __init__(self, layers_dims, initialization="random"):
         self.activationFunctionOutput = sigmoid
-        self.activationFunctionHidden = sigmoid
+        self.activationFunctionHidden = relu
         self.activationFunctionOutput_grad = sigmoid_grad
-        self.activationFunctionHidden_grad = sigmoid_grad
-        # self.costFunction = @sigmoid
+        self.activationFunctionHidden_grad = relu_grad
 
         self.layers_dims = layers_dims
         self.nb_layers = len(layers_dims) - 1  # number of layers in the neural network (less the input layer)
 
         self.W, self.b = initialize_weights(layers_dims, initialization)
-
         self.A = dict()
         self.Z = dict()
 
-    def activation_forward(self, A_prev, W, b, activation_function):
+    def forward_one_layer(self, A_prev, W, b, activation_function):
         """
-        Implement the forward propagation for the ACTIVATION layer
+        Implement the forward propagation for one layer
+        A = f(Z)
+        Z = A_prev * W + b
 
         Arguments:
         A_prev -- activations from previous layer (or input data): (size of previous layer, number of examples)
@@ -91,9 +122,8 @@ class MultiLayerPerceptron:
         activation_function -- the activation to be used in this layer, stored as a text string: "sigmoid" or "relu"
 
         Returns:
-        A -- the output of the activation function, also called the post-activation value
-        cache -- a python tuple containing "linear_cache" and "activation_cache";
-                 stored for computing the backward pass efficiently
+        A -- the output of the activation function
+        Z -- the output without the activation function
         """
 
         Z = np.dot(W, A_prev) + b
@@ -105,16 +135,13 @@ class MultiLayerPerceptron:
 
     def forward_propagation(self, X):
         """
-        Implement forward propagation for the [LINEAR->RELU]*(L-1)->LINEAR->SIGMOID computation
+        Implement forward propagation for all layers of the Neural Network
 
         Arguments:
         X -- data, numpy array of shape (input size, number of examples)
-        parameters -- output of initialize_parameters_deep()
 
         Returns:
-        AL -- last post-activation value
-        caches -- list of caches containing:
-                    every cache of linear_activation_forward() (there are L-1 of them, indexed from 0 to L-1)
+        A -- last post-activation value
         """
 
         self.A[0] = X
@@ -123,16 +150,16 @@ class MultiLayerPerceptron:
         # Implement forward propagation for the HIDDEN layers
         # A = Act_func(W_L * A_prev + b_L)
         for i_layer in range(number_of_layers-1):
-            self.A[i_layer + 1], self.Z[i_layer + 1] = self.activation_forward(self.A[i_layer],
-                                                                               self.W[i_layer + 1],
-                                                                               self.b[i_layer + 1],
-                                                                               self.activationFunctionHidden)
+            self.A[i_layer + 1], self.Z[i_layer + 1] = self.forward_one_layer(self.A[i_layer],
+                                                                              self.W[i_layer + 1],
+                                                                              self.b[i_layer + 1],
+                                                                              self.activationFunctionHidden)
 
         # Implement forward propagation for the OUTPUT layer
-        self.A[number_of_layers], self.Z[number_of_layers] = self.activation_forward(self.A[number_of_layers-1],
-                                                                                     self.W[number_of_layers],
-                                                                                     self.b[number_of_layers],
-                                                                                     self.activationFunctionOutput)
+        self.A[number_of_layers], self.Z[number_of_layers] = self.forward_one_layer(self.A[number_of_layers-1],
+                                                                                    self.W[number_of_layers],
+                                                                                    self.b[number_of_layers],
+                                                                                    self.activationFunctionOutput)
 
         assert (self.A[number_of_layers].shape == (1, X.shape[1]))
 
@@ -140,13 +167,13 @@ class MultiLayerPerceptron:
 
     def compute_loss(self, estimated_val, actual_val):
         """
-        Implement the cost function defined by equation (7).
+        Implement the cost function
         Compute the cross-entropy cost
         - np.sum(Y * np.log(X) + (1-Y) * np.log(1 - X)) / m
 
         Arguments:
-        estimated_val -- probability vector corresponding to your label predictions, shape (1, number of examples)
-        actual_val -- true "label" vector (for example: containing 0 if non-cat, 1 if cat), shape (1, number of examples)
+        estimated_val -- probability vector corresponding to the predicted outputs, shape (1, number of examples)
+        actual_val -- true "output" vector (for example: containing 0 if non-cat, 1 if cat), shape (1, number of examples)
 
         Returns:
         cost -- cross-entropy cost
@@ -163,22 +190,21 @@ class MultiLayerPerceptron:
 
         return cost
 
-    def activation_backward(self, dA, layer, activation_grad):
+    def backward_one_layer(self, dA, layer, activation_grad):
         """
-        Implement the backward propagation for the LINEAR->ACTIVATION layer.
+        Implement the backward propagation for one layer
 
         Arguments:
-        dA -- post-activation gradient for current layer l
-        cache -- tuple of values (linear_cache, activation_cache) we store for computing backward propagation efficiently
-        activation -- the activation to be used in this layer, stored as a text string: "sigmoid" or "relu"
+        dA -- post-activation gradient for current layer
+        layer -- layer to apply the backpropagation
+        activation_grad -- the activation to be used in this layer, stored as a function
 
         Returns:
-        dA_prev -- Gradient of the cost with respect to the activation (of the previous layer l-1), same shape as A_prev
-        dW -- Gradient of the cost with respect to W (current layer l), same shape as W
-        db -- Gradient of the cost with respect to b (current layer l), same shape as b
+        dA_prev -- Gradient of the cost with respect to the activation (of the previous layer l-1), same shape as A_prev of the same layer
+        dW -- Gradient of the cost with respect to W (current layer l), same shape as W of the same layer
+        db -- Gradient of the cost with respect to b (current layer l), same shape as b of the same layer
         """
 
-        # m = A_prev.shape[1]
         m = dA.shape[1]
 
         dZ = dA * activation_grad(self.Z[layer])
@@ -194,20 +220,17 @@ class MultiLayerPerceptron:
 
     def backward_propagation(self, prediction, Y):
         """
-        Implement the backward propagation for the [LINEAR->RELU] * (L-1) -> LINEAR -> SIGMOID group
+        Implement the backward propagation for all layers of the Neural Network
 
         Arguments:
-        AL -- probability vector, output of the forward propagation (L_model_forward())
-        Y -- true "label" vector (containing 0 if non-cat, 1 if cat)
-        caches -- list of caches containing:
-                    every cache of linear_activation_forward() with "relu" (it's caches[l], for l in range(L-1) i.e l = 0...L-2)
-                    the cache of linear_activation_forward() with "sigmoid" (it's caches[L-1])
+        prediction -- estimated vector, output of the forward propagation
+        Y -- true "output" vector
 
         Returns:
         grads -- A dictionary with the gradients
-                 grads["dA" + str(l)] = ...
-                 grads["dW" + str(l)] = ...
-                 grads["db" + str(l)] = ...
+                 grads["W" + str(l)] = ...
+                 grads["b" + str(l)] = ...
+                 grads["error" + str(l)] = ... Error of each neurones (also named delta)
         """
         grads = {}
         errors = {}
@@ -219,32 +242,29 @@ class MultiLayerPerceptron:
         # dAL = 2 * (prediction - Y) / m
 
         # Last layer with an unique activation function
-        delta, grad_W, grad_b = self.activation_backward(dAL, nb_layers, self.activationFunctionOutput_grad)
-        errors[str(nb_layers)] = delta
+        delta, grad_W, grad_b = self.backward_one_layer(dAL, nb_layers, self.activationFunctionOutput_grad)
         grads["W" + str(nb_layers)] = grad_W
         grads["b" + str(nb_layers)] = grad_b
+        grads["error" + str(nb_layers)] = delta
 
         # Loop from l=nb_layers to l=1
         for i_layer in reversed(range(1, nb_layers)):
-            delta, grad_W, grad_b = self.activation_backward(delta, i_layer, self.activationFunctionHidden_grad)
-            errors[str(i_layer)] = delta
+            delta, grad_W, grad_b = self.backward_one_layer(delta, i_layer, self.activationFunctionHidden_grad)
             grads["W" + str(i_layer)] = grad_W
             grads["b" + str(i_layer)] = grad_b
+            grads["error" + str(i_layer)] = delta
 
         return grads, errors
 
     def update_parameters(self, grads, learning_rate):
         """
         Update parameters using gradient descent
+        W = W - lr * dW
+        b = b - lr * db
 
         Arguments:
-        parameters -- python dictionary containing your parameters
-        grads -- python dictionary containing your gradients, output of L_model_backward
-
-        Returns:
-        parameters -- python dictionary containing your updated parameters
-                      parameters["W" + str(l)] = ...
-                      parameters["b" + str(l)] = ...
+        grads -- python dictionary containing your gradients
+        learning_rate -- learning rate for the gradient descent
         """
 
         nb_layers = self.nb_layers  # number of layers in the neural network
@@ -254,20 +274,21 @@ class MultiLayerPerceptron:
             self.W[i_layer + 1] = self.W[i_layer + 1] - learning_rate * grads["W" + str(i_layer + 1)]
             self.b[i_layer + 1] = self.b[i_layer + 1] - learning_rate * grads["b" + str(i_layer + 1)]
 
-    def train(self, X, Y, learning_rate=0.01, num_iterations=15000, print_cost=True):
+    def train(self, X, Y, learning_rate=0.01, num_iterations=15000, print_cost=True, display=False):
         """
-        Implements a three-layer neural network: LINEAR->RELU->LINEAR->RELU->LINEAR->SIGMOID.
+        Fit the input data X to the output data Y by learning
 
         Arguments:
-        X -- input data, of shape (2, number of examples)
-        Y -- true "label" vector (containing 0 for red dots; 1 for blue dots), of shape (1, number of examples)
+        X -- input data, of shape (number of feature, number of examples)
+        Y -- true "output" vector of shape (1, number of examples)
         learning_rate -- learning rate for gradient descent
         num_iterations -- number of iterations to run gradient descent
         print_cost -- if True, print the cost every 1000 iterations
-        initialization -- flag to choose which initialization to use ("zeros","random" or "he")
+        display -- if True, display the cost into a graph
 
         Returns:
-        parameters -- parameters learnt by the model
+        W -- Weight learnt by the model
+        b -- Bias learnt by the model
         """
 
         costs = []
@@ -293,19 +314,42 @@ class MultiLayerPerceptron:
                 costs.append(cost)
 
         # plot the loss
-        # plt.plot(costs)
-        # plt.ylabel('cost')
-        # plt.xlabel('iterations (per hundreds)')
-        # plt.title("Learning rate =" + str(learning_rate))
-        # plt.show()
+        if display:
+            plt.plot(costs)
+            plt.ylabel('Cost')
+            plt.xlabel('Iterations (per hundreds)')
+            plt.title("Learning rate = " + str(learning_rate))
+            plt.show()
 
-        # return parameters
+        return self.W, self.b
 
-
-
-    def linear_activation_backward(dA, cache, activation):
+    def predict(self, X, thresholds=None):
         """
-        Implement the backward propagation for the LINEAR->ACTIVATION layer.
+        This function is used to predict the results of the trained neural network
+
+        Arguments:
+        X -- data set of examples you would like to predict, numpy array of shape (input size, number of examples)
+        thresholds -- list of thresholds to label the output
+
+        Returns:
+        predictions -- predictions for the given dataset X
+        """
+
+        m = X.shape[1]
+        predictions = np.zeros((1, m))
+
+        # Forward propagation
+        estimated_val = self.forward_propagation(X)
+
+        # convert estimated value to label
+        if thresholds is not None:
+            for i in range(0, len(thresholds)):
+                predictions[0, estimated_val[0] >= thresholds[i]] = i+1
+
+        return predictions
+
+        """
+        Checks if backward_propagation_n computes correctly the gradient of the cost output by forward_propagation_n
 
         Arguments:
         dA -- post-activation gradient for current layer l
@@ -326,10 +370,11 @@ class MultiLayerPerceptron:
 
 
 if __name__ == '__main__':
-    mlp = MultiLayerPerceptron([2, 3, 1])
 
+    mlp = MultiLayerPerceptron([2, 2, 1])
     x = np.array([[0, 0], [1, 0], [0, 1], [1, 1]], dtype=float).transpose()
-    y = np.array([0, 1, 1, 0], dtype=float, ndmin=2)
-    z = mlp.train(x, y)
+    y = np.array([[0], [1], [1], [0]], dtype=float).transpose()
+    mlp.train(x, y, learning_rate=0.1, num_iterations=15000, display=True)
+    prediction = mlp.predict(np.array([[0, 0], [1, 0], [0, 1], [1, 1]]).transpose(), [0.5])
+    print(prediction)
 
-    print(z)
