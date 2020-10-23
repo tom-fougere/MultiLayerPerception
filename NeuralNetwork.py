@@ -16,7 +16,7 @@ def initialize_weights(layers_dims, initialization):
 def initialize_parameters_random(layers_dims):
     """
     Arguments:
-    layer_dims -- python array (list) containing the size of each layer.
+    layer_dims -- python array (list) containing the size of each layer including the input and the output.
 
     Returns:
     parameters -- python dictionary containing your parameters "W1", "b1", ..., "WL", "bL":
@@ -163,7 +163,7 @@ class MultiLayerPerceptron:
 
         return cost
 
-    def activation_backward(self, dA, A, W, A_prev, activation_grad):
+    def activation_backward(self, dA, layer, activation_grad):
         """
         Implement the backward propagation for the LINEAR->ACTIVATION layer.
 
@@ -181,15 +181,14 @@ class MultiLayerPerceptron:
         # m = A_prev.shape[1]
         m = dA.shape[1]
 
-        d_act_func = activation_grad(A)
-        dZ = dA * d_act_func
-        dW = np.dot(dZ, A_prev.T) / m
+        dZ = dA * activation_grad(self.Z[layer])
+        dW = np.dot(dZ, self.A[layer-1].T) / m
         db = np.sum(dZ, axis=1, keepdims=True) / m
-        dA_prev = np.dot(W.T, dZ)
+        dA_prev = np.dot(self.W[layer].T, dZ)
 
-        assert (dW.shape == W.shape)
-        assert (db.shape == (W.shape[0], 1))
-        assert (dA_prev.shape == A_prev.shape)
+        assert (dW.shape == self.W[layer].shape)
+        assert (db.shape == (self.W[layer].shape[0], 1))
+        assert (dA_prev.shape == self.A[layer-1].shape)
 
         return dA_prev, dW, db
 
@@ -211,8 +210,8 @@ class MultiLayerPerceptron:
                  grads["db" + str(l)] = ...
         """
         grads = {}
+        errors = {}
         nb_layers = self.nb_layers  # the number of layers
-        m = prediction.shape[1]
         Y = Y.reshape(prediction.shape)  # after this line, Y is the same shape as AL
 
         # Initializing the backpropagation
@@ -220,25 +219,19 @@ class MultiLayerPerceptron:
         # dAL = 2 * (prediction - Y) / m
 
         # Last layer with an unique activation function
-        delta, grad_W, grad_b = self.activation_backward(dAL,
-                                                         self.A[nb_layers],
-                                                         self.W[nb_layers],
-                                                         self.A[nb_layers-1],
-                                                         self.activationFunctionOutput_grad)
+        delta, grad_W, grad_b = self.activation_backward(dAL, nb_layers, self.activationFunctionOutput_grad)
+        errors[str(nb_layers)] = delta
         grads["W" + str(nb_layers)] = grad_W
         grads["b" + str(nb_layers)] = grad_b
 
         # Loop from l=nb_layers to l=1
         for i_layer in reversed(range(1, nb_layers)):
-            delta, grad_W, grad_b = self.activation_backward(delta,
-                                                             self.A[i_layer],
-                                                             self.W[i_layer],
-                                                             self.A[i_layer-1],
-                                                             self.activationFunctionHidden_grad)
+            delta, grad_W, grad_b = self.activation_backward(delta, i_layer, self.activationFunctionHidden_grad)
+            errors[str(i_layer)] = delta
             grads["W" + str(i_layer)] = grad_W
             grads["b" + str(i_layer)] = grad_b
 
-        return grads
+        return grads, errors
 
     def update_parameters(self, grads, learning_rate):
         """
@@ -289,7 +282,7 @@ class MultiLayerPerceptron:
             cost = self.compute_loss(a_output, Y)
 
             # Backward propagation.
-            grads = self.backward_propagation(a_output, Y)
+            grads, _ = self.backward_propagation(a_output, Y)
 
             # Update parameters.
             self.update_parameters(grads, learning_rate)
@@ -297,7 +290,6 @@ class MultiLayerPerceptron:
             # Print the loss every 1000 iterations
             if print_cost and i % 1000 == 0:
                 print("Cost after iteration {}: {}".format(i, cost))
-            #    costs.append(cost)
                 costs.append(cost)
 
         # plot the loss
