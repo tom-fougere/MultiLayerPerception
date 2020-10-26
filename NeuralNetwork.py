@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from lib.Utils.ActivationFunctions import *
+from lib.Utils.CostFunctions import *
 
 
 def initialize_weights(layers_dims, initialization):
@@ -99,8 +100,10 @@ class MultiLayerPerceptron:
     def __init__(self, layers_dims, initialization="random"):
         self.activationFunctionOutput = sigmoid
         self.activationFunctionHidden = relu
-        self.activationFunctionOutput_grad = sigmoid_grad
-        self.activationFunctionHidden_grad = relu_grad
+        self.costFunction = binary_cross_entropy
+        self.activationFunctionOutput_grad = eval(self.activationFunctionOutput.__name__ + '_grad')
+        self.activationFunctionHidden_grad = eval(self.activationFunctionHidden.__name__ + '_grad')
+        self.costFunction_grad = eval(self.costFunction.__name__ + '_grad')
 
         self.layers_dims = layers_dims
         self.nb_layers = len(layers_dims) - 1  # number of layers in the neural network (less the input layer)
@@ -168,22 +171,17 @@ class MultiLayerPerceptron:
     def compute_loss(self, estimated_val, actual_val):
         """
         Implement the cost function
-        Compute the cross-entropy cost
-        - np.sum(Y * np.log(X) + (1-Y) * np.log(1 - X)) / m
 
         Arguments:
         estimated_val -- probability vector corresponding to the predicted outputs, shape (1, number of examples)
-        actual_val -- true "output" vector (for example: containing 0 if non-cat, 1 if cat), shape (1, number of examples)
+        actual_val -- true "output" vector, shape (1, number of examples)
 
         Returns:
-        cost -- cross-entropy cost
+        cost -- cost value
         """
 
-        m = actual_val.shape[1]  # Number of training data
-
-        # Compute loss from x and y.
-        cost = - np.sum(actual_val * np.log(estimated_val) + (1 - actual_val) * np.log(1 - estimated_val)) / m
-        # cost = np.sum((estimated_val - actual_val)**2) / m
+        # Compute loss from actual_val and estimated_val.
+        cost = self.costFunction(actual_val, estimated_val)
 
         cost = np.squeeze(cost)  # To make sure your cost's shape is what we expect (e.g. this turns [[17]] into 17).
         assert (cost.shape == ())
@@ -238,8 +236,7 @@ class MultiLayerPerceptron:
         Y = Y.reshape(prediction.shape)  # after this line, Y is the same shape as AL
 
         # Initializing the backpropagation
-        dAL = - (np.divide(Y, prediction) - np.divide(1 - Y, 1 - prediction))
-        # dAL = 2 * (prediction - Y) / m
+        dAL = self.costFunction_grad(Y, prediction)
 
         # Last layer with an unique activation function
         delta, grad_W, grad_b = self.backward_one_layer(dAL, nb_layers, self.activationFunctionOutput_grad)
@@ -347,6 +344,20 @@ class MultiLayerPerceptron:
                 predictions[0, estimated_val[0] >= thresholds[i]] = i+1
 
         return predictions
+
+    def set_functions(self, activation_function_output=sigmoid, activation_function_hidden=relu, cost_function=mse):
+        """
+        This function allows the modification of one function (activation output, activation hidden, cost)
+
+        Arguments:
+        activation_function_output -- function of the activation function for the output layer (f(x))
+        activation_function_hidden -- function of the activation function for the hidden layer(s) (f(x))
+        cost_function -- function to compute the cost function (f(actual, estimated))
+
+        """
+        self.costFunction = cost_function
+        self.activationFunctionOutput = activation_function_output
+        self.activationFunctionHidden = activation_function_hidden
 
 
 if __name__ == '__main__':
