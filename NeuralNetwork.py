@@ -123,7 +123,7 @@ class MultiLayerPerceptron:
         Z = A_prev * W + b
 
         Arguments:
-        layer -- Layer to apply the forward propagation
+        layer -- Layer to apply the forward propagation, scalar
         activation_function -- the activation to be used in this layer, stored as a text string: "sigmoid" or "relu"
 
         Returns:
@@ -207,7 +207,7 @@ class MultiLayerPerceptron:
 
         Arguments:
         dA -- post-activation gradient for current layer
-        layer -- layer to apply the backpropagation
+        layer -- layer to apply the backpropagation, scalar
         activation_grad -- the activation to be used in this layer, stored as a function
 
         Returns:
@@ -245,7 +245,7 @@ class MultiLayerPerceptron:
         grads -- A dictionary with the gradients
                  grads["W" + str(l)] = ...
                  grads["b" + str(l)] = ...
-                 grads["error" + str(l)] = ... Error of each neurones (also named delta)
+                 grads["error" + str(l)] = ... Error of each neurons (also named delta)
         """
         grads = {}
         errors = {}
@@ -288,15 +288,18 @@ class MultiLayerPerceptron:
             self.W[i_layer + 1] = self.W[i_layer + 1] - learning_rate * grads["W" + str(i_layer + 1)]
             self.b[i_layer + 1] = self.b[i_layer + 1] - learning_rate * grads["b" + str(i_layer + 1)]
 
-    def train(self, X, Y, learning_rate=0.01, num_iterations=15000, lambd=0.01, print_cost=True, display=False):
+    def train(self, X, Y, learning_rate=0.01, num_iterations=15000, lambd=0.01, keep_prob=1.,
+              print_cost=True, display=False):
         """
         Fit the input data X to the output data Y by learning
 
         Arguments:
         X -- input data, of shape (number of feature, number of examples)
         Y -- true "output" vector of shape (1, number of examples)
-        learning_rate -- learning rate for gradient descent
-        num_iterations -- number of iterations to run gradient descent
+        learning_rate -- learning rate for gradient descent, scalar
+        num_iterations -- number of iterations to run gradient descent, scalar
+        lambd -- regularization hyper-parameter (L2 regularization), scalar
+        keep_prob -- probability of keeping a neuron active during drop-out, scalar
         print_cost -- if True, print the cost every 1000 iterations
         display -- if True, display the cost into a graph
 
@@ -307,6 +310,7 @@ class MultiLayerPerceptron:
 
         costs = []
         self.regularization_lambda = lambd
+        self.keep_prob = keep_prob
 
         # Loop (gradient descent)
         for i in range(0, num_iterations):
