@@ -108,11 +108,13 @@ class MultiLayerPerceptron:
         self.layers_dims = layers_dims
         self.nb_layers = len(layers_dims) - 1  # number of layers in the neural network (less the input layer)
 
-        self.regularization_lambda = 0
+        self.regularization_lambda = 0.
+        self.keep_prob = 1.
 
         self.W, self.b = initialize_weights(layers_dims, initialization)
         self.A = dict()
         self.Z = dict()
+        self.D = dict()
 
     def forward_one_layer(self, A_prev, W, b, activation_function):
         """
@@ -134,9 +136,14 @@ class MultiLayerPerceptron:
         Z = np.dot(W, A_prev) + b
         A = activation_function(Z)
 
+        # Add dropout
+        D = np.random.rand(A.shape)  # Initialize matrix
+        D = (D < self.keep_prob).astype(int)  # Convert to 0 or 1
+        A = A * D / self.keep_prob  # Shut down som neurons and scale the value
+
         assert (A.shape == (W.shape[0], A_prev.shape[1]))
 
-        return A, Z
+        return A, Z, D
 
     def forward_propagation(self, X):
         """
@@ -222,6 +229,10 @@ class MultiLayerPerceptron:
         dW = np.dot(dZ, self.A[layer-1].T) / m + self.regularization_lambda / m * self.W[layer]
         db = np.sum(dZ, axis=1, keepdims=True) / m
         dA_prev = np.dot(self.W[layer].T, dZ)
+
+        # Apply dropout
+        dA_prev = dA_prev * self.D[layer]
+        dA_prev = dA_prev / self.keep_prob
 
         assert (dW.shape == self.W[layer].shape)
         assert (db.shape == (self.W[layer].shape[0], 1))
@@ -350,8 +361,15 @@ class MultiLayerPerceptron:
         m = X.shape[1]
         predictions = np.zeros((1, m))
 
+        # Disable dropout during prediction
+        keep_prob = self.keep_prob
+        self.keep_prob = 1.
+
         # Forward propagation
         estimated_val = self.forward_propagation(X)
+
+        # Enable dropout after prediction
+        self.keep_prob = keep_prob
 
         # convert estimated value to label
         if thresholds is not None:
