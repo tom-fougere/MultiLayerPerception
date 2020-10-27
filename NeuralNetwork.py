@@ -123,25 +123,22 @@ class MultiLayerPerceptron:
         Z = A_prev * W + b
 
         Arguments:
-        A_prev -- activations from previous layer (or input data): (size of previous layer, number of examples)
-        W -- weights matrix: numpy array of shape (size of current layer, size of previous layer)
-        b -- bias vector, numpy array of shape (size of the current layer, 1)
+        layer -- Layer to apply the forward propagation
         activation_function -- the activation to be used in this layer, stored as a text string: "sigmoid" or "relu"
 
         Returns:
         A -- the output of the activation function
-        Z -- the output without the activation function
         """
 
         Z = np.dot(self.W[layer], self.A[layer - 1]) + self.b[layer]
         A = activation_function(Z)
         self.Z[layer] = Z
 
-        # Add dropout
+        # Dropout
         D = np.random.rand(A.shape[0], A.shape[1])  # Initialize matrix
         D = (D < self.keep_prob).astype(int)  # Convert to 0 or 1
         self.D[layer] = D  # Store deactivated neurons
-        A = A * D / self.keep_prob  # Shut down som neurons and scale the value
+        A = A * D / self.keep_prob  # Shut down some neurons and scale the value
 
         assert (A.shape == (self.W[layer].shape[0], self.A[layer - 1].shape[1]))
 
