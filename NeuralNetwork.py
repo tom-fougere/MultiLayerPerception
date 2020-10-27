@@ -108,6 +108,8 @@ class MultiLayerPerceptron:
         self.layers_dims = layers_dims
         self.nb_layers = len(layers_dims) - 1  # number of layers in the neural network (less the input layer)
 
+        self.regularization_lambda = 0
+
         self.W, self.b = initialize_weights(layers_dims, initialization)
         self.A = dict()
         self.Z = dict()
@@ -180,10 +182,21 @@ class MultiLayerPerceptron:
         cost -- cost value
         """
 
+        m = actual_val.shape[1]
+
         # Compute loss from actual_val and estimated_val.
         cost = self.costFunction(actual_val, estimated_val)
 
+        # Compute L2 regularization
+        sum_weights = 0.
+        for W in self.W.values():
+            sum_weights = sum_weights + np.sum(np.square(W))
+        l2_regularization_cost = self.regularization_lambda * sum_weights / (2 * m)
+
         cost = np.squeeze(cost)  # To make sure your cost's shape is what we expect (e.g. this turns [[17]] into 17).
+
+        # Apply regularization
+        cost = cost + l2_regularization_cost
         assert (cost.shape == ())
 
         return cost
@@ -206,7 +219,7 @@ class MultiLayerPerceptron:
         m = dA.shape[1]
 
         dZ = dA * activation_grad(self.Z[layer])
-        dW = np.dot(dZ, self.A[layer-1].T) / m
+        dW = np.dot(dZ, self.A[layer-1].T) / m + self.regularization_lambda / m * self.W[layer]
         db = np.sum(dZ, axis=1, keepdims=True) / m
         dA_prev = np.dot(self.W[layer].T, dZ)
 
@@ -271,7 +284,7 @@ class MultiLayerPerceptron:
             self.W[i_layer + 1] = self.W[i_layer + 1] - learning_rate * grads["W" + str(i_layer + 1)]
             self.b[i_layer + 1] = self.b[i_layer + 1] - learning_rate * grads["b" + str(i_layer + 1)]
 
-    def train(self, X, Y, learning_rate=0.01, num_iterations=15000, print_cost=True, display=False):
+    def train(self, X, Y, learning_rate=0.01, num_iterations=15000, lambd=0.01, print_cost=True, display=False):
         """
         Fit the input data X to the output data Y by learning
 
@@ -289,6 +302,7 @@ class MultiLayerPerceptron:
         """
 
         costs = []
+        self.regularization_lambda = lambd
 
         # Loop (gradient descent)
         for i in range(0, num_iterations):
@@ -305,9 +319,10 @@ class MultiLayerPerceptron:
             # Update parameters.
             self.update_parameters(grads, learning_rate)
 
-            # Print the loss every 1000 iterations
-            if print_cost and i % 1000 == 0:
+            # Print the loss every 10000 iterations
+            if print_cost and (i % 10000 == 0 or i == num_iterations-1):
                 print("Cost after iteration {}: {}".format(i, cost))
+            if print_cost and (i % 1000 == 0 or i == num_iterations-1):
                 costs.append(cost)
 
         # plot the loss
