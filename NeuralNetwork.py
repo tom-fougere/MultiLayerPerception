@@ -319,9 +319,10 @@ class MultiLayerPerceptron:
             # Update parameters.
             self.update_parameters(grads, learning_rate)
 
-            # Print the loss every 1000 iterations
-            if print_cost and i % 1000 == 0:
+            # Print the loss every 10000 iterations
+            if print_cost and (i % 10000 == 0 or i == num_iterations-1):
                 print("Cost after iteration {}: {}".format(i, cost))
+            if print_cost and (i % 1000 == 0 or i == num_iterations-1):
                 costs.append(cost)
 
         # plot the loss
