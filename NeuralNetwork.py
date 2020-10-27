@@ -116,7 +116,7 @@ class MultiLayerPerceptron:
         self.Z = dict()
         self.D = dict()
 
-    def forward_one_layer(self, A_prev, W, b, activation_function):
+    def forward_one_layer(self, layer, activation_function):
         """
         Implement the forward propagation for one layer
         A = f(Z)
@@ -133,17 +133,19 @@ class MultiLayerPerceptron:
         Z -- the output without the activation function
         """
 
-        Z = np.dot(W, A_prev) + b
+        Z = np.dot(self.W[layer], self.A[layer - 1]) + self.b[layer]
         A = activation_function(Z)
+        self.Z[layer] = Z
 
         # Add dropout
-        D = np.random.rand(A.shape)  # Initialize matrix
+        D = np.random.rand(A.shape[0], A.shape[1])  # Initialize matrix
         D = (D < self.keep_prob).astype(int)  # Convert to 0 or 1
+        self.D[layer] = D  # Store deactivated neurons
         A = A * D / self.keep_prob  # Shut down som neurons and scale the value
 
-        assert (A.shape == (W.shape[0], A_prev.shape[1]))
+        assert (A.shape == (self.W[layer].shape[0], self.A[layer - 1].shape[1]))
 
-        return A, Z, D
+        return A
 
     def forward_propagation(self, X):
         """
@@ -162,16 +164,10 @@ class MultiLayerPerceptron:
         # Implement forward propagation for the HIDDEN layers
         # A = Act_func(W_L * A_prev + b_L)
         for i_layer in range(number_of_layers-1):
-            self.A[i_layer + 1], self.Z[i_layer + 1] = self.forward_one_layer(self.A[i_layer],
-                                                                              self.W[i_layer + 1],
-                                                                              self.b[i_layer + 1],
-                                                                              self.activationFunctionHidden)
+            self.A[i_layer + 1] = self.forward_one_layer(i_layer + 1, self.activationFunctionHidden)
 
         # Implement forward propagation for the OUTPUT layer
-        self.A[number_of_layers], self.Z[number_of_layers] = self.forward_one_layer(self.A[number_of_layers-1],
-                                                                                    self.W[number_of_layers],
-                                                                                    self.b[number_of_layers],
-                                                                                    self.activationFunctionOutput)
+        self.A[number_of_layers] = self.forward_one_layer(number_of_layers, self.activationFunctionOutput)
 
         assert (self.A[number_of_layers].shape == (1, X.shape[1]))
 
