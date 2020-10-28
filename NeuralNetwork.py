@@ -23,6 +23,8 @@ def initialize_weights(layers_dims, initialization):
             ...
             WL -- weight matrix of shape (layers_dims[L], 1)
     """
+    W = {}
+    b = {}
     if initialization == "random":
         W, b = initialize_parameters_random(layers_dims)
     elif initialization == "he":
@@ -37,8 +39,6 @@ def initialize_parameters_random(layers_dims):
 
     Arguments:
     layer_dims -- python array (list) containing the size of each layer including the input and the output.
-    initialization -- method of initialize the data, stored as a text string
-                      Choice: random, he
 
     Returns:
     W -- python dictionary containing the weights of each layer
@@ -71,8 +71,6 @@ def initialize_parameters_he(layers_dims):
 
     Arguments:
     layer_dims -- python array (list) containing the size of each layer including the input and the output.
-    initialization -- method of initialize the data, stored as a text string
-                      Choice: random, he
 
     Returns:
     W -- python dictionary containing the weights of each layer
@@ -94,6 +92,45 @@ def initialize_parameters_he(layers_dims):
 
     return W, b
 
+
+def dropout_forward(A, keep_prob=1.):
+    """
+    Implement the forward (propagation) dropout
+    Randomly shuts down some neurons (in the matrix A)
+
+    Arguments:
+    A -- numpy array corresponding to the output of neurons which are going to be shut down
+    keep_prob -- probability of keeping a neuron active during drop-out, scalar
+
+    Returns:
+    A_dropout -- Output of neurons (or matrix A) after drop-out, numpy array with the same size as A
+    D -- numpy array indicating which neurons have been shut down, same size as A_dropout
+    """
+
+    D = np.random.rand(A.shape[0], A.shape[1])  # Initialize matrix
+    D = (D < keep_prob).astype(int)  # Convert to 0 or 1
+    A_dropout = A * D / keep_prob  # Shut down some neurons and scale the value
+
+    return A_dropout, D
+
+
+def dropout_backward(A, D, keep_prob=1.):
+    """
+    Implement the backward (propagation) dropout
+
+    Arguments:
+    A -- numpy array corresponding to the output of neurons which are going to be shut down
+    D -- numpy array indicating which neurons have been shut down, same size as A_dropout
+    keep_prob -- probability of keeping a neuron active during drop-out, scalar
+
+    Returns:
+    A_dropout -- Output of neurons (or matrix A) after drop-out, numpy array with the same size as A
+    """
+
+    A_dropout = A * D
+    A_dropout = A_dropout / keep_prob
+
+    return A_dropout
 
 class MultiLayerPerceptron:
 
@@ -134,12 +171,6 @@ class MultiLayerPerceptron:
         A = activation_function(Z)
         self.Z[layer] = Z
 
-        # Dropout
-        D = np.random.rand(A.shape[0], A.shape[1])  # Initialize matrix
-        D = (D < self.keep_prob).astype(int)  # Convert to 0 or 1
-        self.D[layer] = D  # Store deactivated neurons
-        A = A * D / self.keep_prob  # Shut down some neurons and scale the value
-
         assert (A.shape == (self.W[layer].shape[0], self.A[layer - 1].shape[1]))
 
         return A
@@ -161,10 +192,16 @@ class MultiLayerPerceptron:
         # Implement forward propagation for the HIDDEN layers
         # A = Act_func(W_L * A_prev + b_L)
         for i_layer in range(number_of_layers-1):
-            self.A[i_layer + 1] = self.forward_one_layer(i_layer + 1, self.activationFunctionHidden)
+            A = self.forward_one_layer(i_layer + 1, activation_function=self.activationFunctionHidden)
+            # if i_layer > 0:
+            self.A[i_layer + 1], self.D[i_layer + 1] = dropout_forward(A, self.keep_prob)
+                # self.A[i_layer + 1] = A
+            # else:
+            #     self.A[i_layer + 1] = A
 
-        # Implement forward propagation for the OUTPUT layer
-        self.A[number_of_layers] = self.forward_one_layer(number_of_layers, self.activationFunctionOutput)
+            # Implement forward propagation for the OUTPUT layer
+        self.A[number_of_layers] = self.forward_one_layer(number_of_layers,
+                                                          activation_function=self.activationFunctionOutput)
 
         assert (self.A[number_of_layers].shape == (1, X.shape[1]))
 
@@ -223,10 +260,6 @@ class MultiLayerPerceptron:
         db = np.sum(dZ, axis=1, keepdims=True) / m
         dA_prev = np.dot(self.W[layer].T, dZ)
 
-        # Apply dropout
-        dA_prev = dA_prev * self.D[layer]
-        dA_prev = dA_prev / self.keep_prob
-
         assert (dW.shape == self.W[layer].shape)
         assert (db.shape == (self.W[layer].shape[0], 1))
         assert (dA_prev.shape == self.A[layer-1].shape)
@@ -257,6 +290,7 @@ class MultiLayerPerceptron:
 
         # Last layer with an unique activation function
         delta, grad_W, grad_b = self.backward_one_layer(dAL, nb_layers, self.activationFunctionOutput_grad)
+        delta = dropout_backward(delta, self.D[nb_layers-1], self.keep_prob)  # Apply dropout
         grads["W" + str(nb_layers)] = grad_W
         grads["b" + str(nb_layers)] = grad_b
         grads["error" + str(nb_layers)] = delta
@@ -264,6 +298,8 @@ class MultiLayerPerceptron:
         # Loop from l=nb_layers to l=1
         for i_layer in reversed(range(1, nb_layers)):
             delta, grad_W, grad_b = self.backward_one_layer(delta, i_layer, self.activationFunctionHidden_grad)
+            if i_layer > 1:
+                delta = dropout_backward(delta, self.D[i_layer-1], self.keep_prob)  # Apply dropout
             grads["W" + str(i_layer)] = grad_W
             grads["b" + str(i_layer)] = grad_b
             grads["error" + str(i_layer)] = delta
@@ -392,10 +428,10 @@ class MultiLayerPerceptron:
 
 if __name__ == '__main__':
 
-    mlp = MultiLayerPerceptron([2, 2, 1])
+    mlp = MultiLayerPerceptron([2, 3, 1])
     x = np.array([[0, 0], [1, 0], [0, 1], [1, 1]], dtype=float).transpose()
     y = np.array([[0], [1], [1], [0]], dtype=float).transpose()
-    mlp.train(x, y, learning_rate=0.1, num_iterations=15000, display=True)
+    mlp.train(x, y, learning_rate=0.1, num_iterations=15000, lambd=0, keep_prob=1., display=True)
     prediction = mlp.predict(np.array([[0, 0], [1, 0], [0, 1], [1, 1]]).transpose(), [0.5])
     print(prediction)
 
