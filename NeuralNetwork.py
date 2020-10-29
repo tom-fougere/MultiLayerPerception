@@ -193,13 +193,9 @@ class MultiLayerPerceptron:
         # A = Act_func(W_L * A_prev + b_L)
         for i_layer in range(number_of_layers-1):
             A = self.forward_one_layer(i_layer + 1, activation_function=self.activationFunctionHidden)
-            # if i_layer > 0:
             self.A[i_layer + 1], self.D[i_layer + 1] = dropout_forward(A, self.keep_prob)
-                # self.A[i_layer + 1] = A
-            # else:
-            #     self.A[i_layer + 1] = A
 
-            # Implement forward propagation for the OUTPUT layer
+        # Implement forward propagation for the OUTPUT layer
         self.A[number_of_layers] = self.forward_one_layer(number_of_layers,
                                                           activation_function=self.activationFunctionOutput)
 
