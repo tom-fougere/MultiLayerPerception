@@ -373,7 +373,7 @@ class MultiLayerPerceptron:
             plt.title("Learning rate = " + str(learning_rate))
             plt.show()
 
-        return self.W, self.b
+        return self.W, self.b, costs
 
     def predict(self, X, thresholds=None):
         """
@@ -421,13 +421,4 @@ class MultiLayerPerceptron:
         self.activationFunctionOutput = activation_function_output
         self.activationFunctionHidden = activation_function_hidden
 
-
-if __name__ == '__main__':
-
-    mlp = MultiLayerPerceptron([2, 3, 1])
-    x = np.array([[0, 0], [1, 0], [0, 1], [1, 1]], dtype=float).transpose()
-    y = np.array([[0], [1], [1], [0]], dtype=float).transpose()
-    mlp.train(x, y, learning_rate=0.1, num_iterations=15000, lambd=0, keep_prob=1., display=True)
-    prediction = mlp.predict(np.array([[0, 0], [1, 0], [0, 1], [1, 1]]).transpose(), [0.5])
-    print(prediction)
 
