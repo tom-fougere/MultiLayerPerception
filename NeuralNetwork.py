@@ -1,10 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from math import floor as math_floor
 from lib.Utils.ActivationFunctions import *
 from lib.Utils.CostFunctions import *
 
 
-def initialize_weights(layers_dims, initialization):
+def initialize_weights(layers_dims, initialization="random"):
     """
     Initialize Weights and Bias for neural networks
 
@@ -131,6 +132,47 @@ def dropout_backward(A, D, keep_prob=1.):
     A_dropout = A_dropout / keep_prob
 
     return A_dropout
+
+
+def random_mini_batches(X, Y, mini_batch_size=64, seed=0):
+    """
+    Creates a list of random mini-batches from (X, Y)
+
+    Arguments:
+    X -- input data, of shape (input size, number of examples)
+    Y -- true output vector, of shape (1, number of examples)
+    mini_batch_size -- size of the mini-batches, integer
+
+    Returns:
+    mini_batches -- list of synchronous (mini_batch_X, mini_batch_Y)
+    """
+
+    np.random.seed(seed)  # To make your "random" mini-batches the same as ours
+    m = X.shape[1]  # number of training examples
+    mini_batches = []
+
+    # Step 1: Shuffle (X, Y)
+    permutation = list(np.random.permutation(m))
+    shuffled_X = X[:, permutation]
+    shuffled_Y = Y[:, permutation].reshape((1, m))
+
+    # Step 2: Partition (shuffled_X, shuffled_Y). Minus the end case.
+    num_complete_minibatches = math_floor(m / mini_batch_size)  # number of mini batches of size mini_batch_size in your partitionning
+    for k in range(0, num_complete_minibatches):
+        mini_batch_X = shuffled_X[:, k * mini_batch_size: (k + 1) * mini_batch_size]
+        mini_batch_Y = shuffled_Y[:, k * mini_batch_size: (k + 1) * mini_batch_size]
+        mini_batch = (mini_batch_X, mini_batch_Y)
+        mini_batches.append(mini_batch)
+
+    # Handling the end case (last mini-batch < mini_batch_size)
+    if m % mini_batch_size != 0:
+        mini_batch_X = shuffled_X[:, num_complete_minibatches * mini_batch_size: m]
+        mini_batch_Y = shuffled_Y[:, num_complete_minibatches * mini_batch_size: m]
+        mini_batch = (mini_batch_X, mini_batch_Y)
+        mini_batches.append(mini_batch)
+
+    return mini_batches
+
 
 class MultiLayerPerceptron:
 
@@ -320,7 +362,7 @@ class MultiLayerPerceptron:
             self.W[i_layer + 1] = self.W[i_layer + 1] - learning_rate * grads["W" + str(i_layer + 1)]
             self.b[i_layer + 1] = self.b[i_layer + 1] - learning_rate * grads["b" + str(i_layer + 1)]
 
-    def train(self, X, Y, learning_rate=0.01, num_iterations=15000, lambd=0.01, keep_prob=1.,
+    def train(self, X, Y, learning_rate=0.01, mini_batch_size=64, num_epochs=10000, lambd=0.01, keep_prob=1.,
               print_cost=True, display=False):
         """
         Fit the input data X to the output data Y by learning
@@ -329,7 +371,8 @@ class MultiLayerPerceptron:
         X -- input data, of shape (number of feature, number of examples)
         Y -- true "output" vector of shape (1, number of examples)
         learning_rate -- learning rate for gradient descent, scalar
-        num_iterations -- number of iterations to run gradient descent, scalar
+        num_epochs -- number of epochs, integer
+        mini_batch_size -- the size of a mini batch, integer (use a power of 2)
         lambd -- regularization hyper-parameter (L2 regularization), scalar
         keep_prob -- probability of keeping a neuron active during drop-out, scalar
         print_cost -- if True, print the cost every 1000 iterations
@@ -341,35 +384,49 @@ class MultiLayerPerceptron:
         """
 
         costs = []
+        seed = 1
         self.regularization_lambda = lambd
         self.keep_prob = keep_prob
 
-        # Loop (gradient descent)
-        for i in range(0, num_iterations):
+        # Optimization loop
+        for i in range(num_epochs):
 
-            # Forward propagation
-            a_output = self.forward_propagation(X)
+            # Define the random mini-batches.
+            # The seed is incremented to reshuffle differently the dataset after each epoch
+            seed = seed + 1
+            minibatches = random_mini_batches(X, Y, mini_batch_size, seed)
+            cost_total = 0
 
-            # Loss
-            cost = self.compute_loss(a_output, Y)
+            for minibatch in minibatches:
 
-            # Backward propagation.
-            grads, _ = self.backward_propagation(a_output, Y)
+                # Select a minibatch
+                (minibatch_X, minibatch_Y) = minibatch
 
-            # Update parameters.
-            self.update_parameters(grads, learning_rate)
+                # Forward propagation
+                a_output = self.forward_propagation(minibatch_X)
 
-            # Print the loss every 10000 iterations
-            if print_cost and (i % 10000 == 0 or i == num_iterations-1):
-                print("Cost after iteration {}: {}".format(i, cost))
-            if print_cost and (i % 1000 == 0 or i == num_iterations-1):
-                costs.append(cost)
+                # Loss
+                cost_total += self.compute_loss(a_output, minibatch_Y)
+
+                # Backward propagation.
+                grads, _ = self.backward_propagation(a_output, minibatch_Y)
+
+                # Update parameters.
+                self.update_parameters(grads, learning_rate)
+
+            cost_avg = cost_total / X.shape[1]
+
+            # Print the loss every 100 iterations
+            if print_cost and (i % 1000 == 0 or i == num_epochs-1):
+                print("Cost after iteration {}: {}".format(i, cost_avg))
+            if print_cost and (i % 100 == 0 or i == num_epochs-1):
+                costs.append(cost_avg)
 
         # plot the loss
         if display:
             plt.plot(costs)
             plt.ylabel('Cost')
-            plt.xlabel('Iterations (per hundreds)')
+            plt.xlabel('Iterations (per 100)')
             plt.title("Learning rate = " + str(learning_rate))
             plt.show()
 
