@@ -174,6 +174,62 @@ def random_mini_batches(X, Y, mini_batch_size=64, seed=0):
     return mini_batches
 
 
+def update_parameters_with_gd(W, b, grads, learning_rate):
+    """
+    Update parameters using gradient descent
+    W = W - lr * dW
+    b = b - lr * db
+
+    Arguments:
+    nb_layers -- number of layers in the neural network, integer
+    grads -- python dictionary containing your gradients
+    learning_rate -- learning rate for the gradient descent, scalar
+    """
+
+    nb_layers = len(W)
+
+    # Update rule for each parameter
+    for i_layer in range(nb_layers):
+        W[i_layer + 1] = W[i_layer + 1] - learning_rate * grads["W" + str(i_layer + 1)]
+        b[i_layer + 1] = b[i_layer + 1] - learning_rate * grads["b" + str(i_layer + 1)]
+
+
+def update_parameters_with_momentum(W, b, grads, velocity, beta, learning_rate):
+    """
+    Update parameters using Momentum
+
+    Arguments:
+    parameters -- python dictionary containing your parameters:
+                    parameters['W' + str(l)] = Wl
+                    parameters['b' + str(l)] = bl
+    grads -- python dictionary containing your gradients for each parameters:
+                    grads['W' + str(l)] = dWl
+                    grads['b' + str(l)] = dbl
+    velocity -- python dictionary containing the current velocity:
+                    velocity['W' + str(l)] = ...
+                    velocity['b' + str(l)] = ...
+    beta -- the momentum hyperparameter, scalar
+    learning_rate -- the learning rate, scalar
+
+    Returns:
+    parameters -- python dictionary containing your updated parameters
+    v -- python dictionary containing your updated velocities
+    """
+
+    nb_layers = len(W)
+
+    # Momentum update for each parameter
+    for l in range(nb_layers):
+        # compute velocities
+        velocity["W" + str(l + 1)] = beta * velocity['W' + str(l + 1)] + (1 - beta) * grads['W' + str(l + 1)]
+        velocity["b" + str(l + 1)] = beta * velocity['b' + str(l + 1)] + (1 - beta) * grads['b' + str(l + 1)]
+        # update parameters
+        W[l + 1] = W[l + 1] - learning_rate * velocity["W" + str(l + 1)]
+        b[l + 1] = b[l + 1] - learning_rate * velocity["b" + str(l + 1)]
+
+    return velocity
+
+
 class MultiLayerPerceptron:
 
     def __init__(self, layers_dims, initialization="random"):
@@ -344,23 +400,19 @@ class MultiLayerPerceptron:
 
         return grads, errors
 
-    def update_parameters(self, grads, learning_rate):
-        """
-        Update parameters using gradient descent
-        W = W - lr * dW
-        b = b - lr * db
-
-        Arguments:
-        grads -- python dictionary containing your gradients
-        learning_rate -- learning rate for the gradient descent
-        """
+    def update_parameters(self, grads, learning_rate, optimizer="gd"):
 
         nb_layers = self.nb_layers  # number of layers in the neural network
 
-        # Update rule for each parameter. Use a for loop.
-        for i_layer in range(nb_layers):
-            self.W[i_layer + 1] = self.W[i_layer + 1] - learning_rate * grads["W" + str(i_layer + 1)]
-            self.b[i_layer + 1] = self.b[i_layer + 1] - learning_rate * grads["b" + str(i_layer + 1)]
+        # Update parameters
+        if optimizer == "gd":
+            update_parameters_with_gd(self.W, self.b, grads, learning_rate)
+        # elif optimizer == "momentum":
+        #     v = update_parameters_with_momentum(self.W, self.b, grads, v, beta, learning_rate)
+        # elif optimizer == "adam":
+        #     t = t + 1  # Adam counter
+        #     parameters, v, s = update_parameters_with_adam(parameters, grads, v, s,
+        #                                                    t, learning_rate, beta1, beta2, epsilon)
 
     def train(self, X, Y, learning_rate=0.01, mini_batch_size=64, num_epochs=10000, lambd=0.01, keep_prob=1.,
               print_cost=True, display=False):
