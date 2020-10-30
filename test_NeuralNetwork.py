@@ -1,5 +1,5 @@
 import scipy.io
-from NeuralNetwork import MultiLayerPerceptron
+from NeuralNetwork import *
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -12,7 +12,7 @@ def test_xor():
     X = np.array([[0, 0], [1, 0], [0, 1], [1, 1]], dtype=float).transpose()
     Y = np.array([[0], [1], [1], [0]], dtype=float).transpose()
 
-    _, _, costs = mlp_xor.train(X, Y, learning_rate=0.1, num_iterations=15000, display=False)
+    _, _, costs = mlp_xor.train(X, Y, learning_rate=0.1, num_epochs=15000, mini_batch_size=X.shape[1], display=False)
     assert(costs[-1] < costs[0])
 
     prediction = mlp_xor.predict(X, [0.5])
@@ -20,7 +20,7 @@ def test_xor():
 
     if DISPLAY_DATA:
         plt.figure()
-        plot_decision_boundary(lambda x: mlp_xor.predict(x.T, [0.5]), x, y, margin=0.2)
+        plot_decision_boundary(lambda x: mlp_xor.predict(x.T, [0.5]), X, Y, margin=0.2)
         plt.show()
 
 
@@ -32,10 +32,12 @@ def test_regularization():
 
     # No regularization
     mlp_regul0 = MultiLayerPerceptron([X.shape[0], 20, 3, 1])
-    _, _, costs0 = mlp_regul0.train(X, Y, learning_rate=0.9, num_iterations=40000, lambd=0, display=False)
+    _, _, costs0 = mlp_regul0.train(X, Y, learning_rate=0.9, num_epochs=40000, mini_batch_size=X.shape[1], lambd=0,
+                                    display=False)
 
     mlp_regul1 = MultiLayerPerceptron([X.shape[0], 20, 3, 1])
-    _, _, costs1 = mlp_regul1.train(X, Y, learning_rate=0.9, num_iterations=40000, lambd=0.1, display=False)
+    _, _, costs1 = mlp_regul1.train(X, Y, learning_rate=0.9, num_epochs=40000, mini_batch_size=X.shape[1], lambd=0.1,
+                                    display=False)
 
     assert(costs1[-1] > costs0[-1])
 
@@ -57,13 +59,15 @@ def test_dropout():
     X = data['X'].T
     Y = data['y'].T
 
-    # No regularization
+    # No dropout
     mlp_dropout0 = MultiLayerPerceptron([X.shape[0], 20, 3, 1])
-    _, _, costs0 = mlp_dropout0.train(X, Y, learning_rate=0.9, num_iterations=40000, keep_prob=1., display=False)
+    _, _, costs0 = mlp_dropout0.train(X, Y, learning_rate=0.9, num_epochs=40000, mini_batch_size=X.shape[1],
+                                      keep_prob=1., display=False)
 
-    # With regularization
+    # With dropout
     mlp_dropout1 = MultiLayerPerceptron([X.shape[0], 20, 3, 1])
-    _, _, costs1 = mlp_dropout1.train(X, Y, learning_rate=0.9, num_iterations=40000, keep_prob=0.8, display=False)
+    _, _, costs1 = mlp_dropout1.train(X, Y, learning_rate=0.9, num_epochs=40000, mini_batch_size=X.shape[1],
+                                      keep_prob=0.8, display=False)
 
     assert(costs1[-1] > costs0[-1])
 
@@ -71,12 +75,109 @@ def test_dropout():
         plt.figure()
         plt.subplot(121)
         plot_decision_boundary(lambda x: mlp_dropout0.predict(x.T, [0.5]), X, Y, margin=0.1)
-        plt.title("Model without regularization")
+        plt.title("Model without dropout")
 
         plt.subplot(122)
         plot_decision_boundary(lambda x: mlp_dropout1.predict(x.T, [0.5]), X, Y, margin=0.1)
-        plt.title("Model with regularization")
+        plt.title("Model with dropout")
         plt.show()
+
+
+def test_minibatch():
+    data = scipy.io.loadmat('test_data.mat')
+
+    X = data['X'].T
+    Y = data['y'].T
+
+    # No mini-batch
+    mlp_minibatch0 = MultiLayerPerceptron([X.shape[0], 20, 3, 1])
+    _, _, costs0 = mlp_minibatch0.train(X, Y, learning_rate=0.9, num_epochs=4000, mini_batch_size=X.shape[1],
+                                        lambd=0, display=False)
+
+    # Mini-batch = Nb_examples/2
+    mlp_minibatch1 = MultiLayerPerceptron([X.shape[0], 20, 3, 1])
+    _, _, costs1 = mlp_minibatch1.train(X, Y, learning_rate=0.9, num_epochs=4000, mini_batch_size=2,
+                                        lambd=0, display=False)
+
+    # Mini-batch = 32
+    mlp_minibatch2 = MultiLayerPerceptron([X.shape[0], 20, 3, 1])
+    _, _, costs2 = mlp_minibatch2.train(X, Y, learning_rate=0.9, num_epochs=4000, mini_batch_size=32,
+                                        lambd=0, display=False)
+
+    mean0 = np.mean(costs0[-10:-1])
+    mean1 = np.mean(costs1[-10:-1])
+    mean2 = np.mean(costs2[-10:-1])
+    std0 = np.std(costs0[-10:-1])
+    std1 = np.std(costs1[-10:-1])
+    std2 = np.std(costs2[-10:-1])
+
+    assert (mean0 < mean2 < mean1)
+    assert (std0 < std2 < std1)
+
+    if DISPLAY_DATA:
+        plt.figure()
+        plt.plot(costs0)
+        plt.plot(costs1)
+        plt.plot(costs2)
+        plt.title("Costs for Minibatch")
+        plt.legend(('No Minibatch', 'Minibatch = 2', 'Minibatch = 32'))
+        plt.show()
+
+
+def test_minibatch_subfunction():
+    data = scipy.io.loadmat('test_data.mat')
+
+    X = data['X'].T
+    Y = data['y'].T
+    nb_examples = X.shape[1]
+
+    mini_batches = random_mini_batches(X, Y, mini_batch_size=64)
+
+    np.testing.assert_equal(mini_batches[0][0].shape, (2, 64))
+    np.testing.assert_equal(mini_batches[1][0].shape, (2, 64))
+    np.testing.assert_equal(mini_batches[2][0].shape, (2, 64))
+    np.testing.assert_equal(mini_batches[3][0].shape, (2, nb_examples - 3*64))
+    np.testing.assert_equal(mini_batches[0][1].shape, (1, 64))
+    np.testing.assert_equal(mini_batches[1][1].shape, (1, 64))
+    np.testing.assert_equal(mini_batches[2][1].shape, (1, 64))
+    np.testing.assert_equal(mini_batches[3][1].shape, (1, nb_examples - 3*64))
+
+
+def test_initialization_weights():
+
+    W0, b0 = initialize_weights([200, 20], "random")
+    W1, b1 = initialize_weights([200, 20], "he")
+
+    assert (0.0099 < np.std(W0[1].flatten()) < 0.0101)
+    assert (0.099 < np.std(W1[1].flatten()) < 0.101)
+    np.testing.assert_equal(b0[1], np.zeros((20, 1)))
+    np.testing.assert_equal(b1[1], np.zeros((20, 1)))
+
+
+def test_dropout_forward():
+
+    marging = 0.01
+
+    A = np.ones((200, 20))
+    A0, D0 = dropout_forward(A, keep_prob=1.)
+    A1, D1 = dropout_forward(A, keep_prob=0.77)
+
+    assert (A0[0, 0] == 1.)
+    assert (sum(sum(A0)) == 200*20)
+    assert (sum(sum(D0)) == 200*20)
+    assert (np.any(A1[0] == 1/0.77))
+    assert (np.any(A1[0] == 0))
+    assert (200*20*(1-marging) < sum(sum(A1)) < 200*20*(1+marging))
+    assert (200*20*(1-marging)*0.77 < sum(sum(D1)) < 200*20*(1+marging)*0.77)
+
+
+def test_dropout_backward():
+
+    mat = np.ones((200, 20))
+    A, D = dropout_forward(mat, keep_prob=0.77)
+    A1 = dropout_backward(mat, D, keep_prob=0.77)
+
+    np.testing.assert_equal(A, A1)
 
 
 def plot_decision_boundary(model, X, y, margin=1.):
@@ -98,6 +199,14 @@ def plot_decision_boundary(model, X, y, margin=1.):
 
 
 if __name__ == '__main__':
-    test_dropout()
+
+    test_initialization_weights()
+    test_dropout_forward()
+    test_dropout_backward()
+    # test_minibatch_subfunction()
+    # test_xor()
+    # test_regularization()
+    # test_dropout()
+    # test_minibatch()
 
 
