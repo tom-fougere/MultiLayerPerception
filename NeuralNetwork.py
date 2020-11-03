@@ -309,7 +309,7 @@ def update_parameters_with_adam(W, b, grads, v, s, adam_counter, learning_rate=0
         b[i_layer + 1] = b[i_layer + 1] - learning_rate * v_corrected["b" + str(i_layer + 1)] / (
                          np.sqrt(s_corrected["b" + str(i_layer + 1)]) + epsilon)
 
-    return W, b, v_corrected, s_corrected
+    return W, b, v, s
 
 
 class MultiLayerPerceptron:
@@ -498,6 +498,16 @@ class MultiLayerPerceptron:
         return grads, errors
 
     def initialize_optimizer(self, beta, beta1, beta2, epsilon, optimizer="gd"):
+        """
+        Initialize internal data for the selected optimizer
+
+        Arguments:
+        beta -- Momentum hyperparameter, scalar
+        beta1 -- Exponential decay hyperparameter for the past gradients estimates (Adam optimizer), scalar
+        beta2 -- Exponential decay hyperparameter for the past squared gradients estimates (Adam optimizer), scalar
+        epsilon -- hyperparameter preventing division by zero in Adam updates, scalar
+        optimizer -- optimizer mode, stored as a text string: "gd", "momentum" or "adam"
+        """
 
         self.beta = beta
         self.beta1 = beta1
@@ -518,8 +528,21 @@ class MultiLayerPerceptron:
                 self.S["b" + str(i_layer + 1)] = np.zeros(self.b[i_layer + 1].shape)
 
     def update_parameters(self, grads, learning_rate, beta, beta1, beta2, epsilon, optimizer="gd"):
+        """
+        Update parameters following the selected optimizer
 
-        # Update parameters
+        Arguments:
+        grads -- A dictionary with the gradients
+                 grads["W" + str(l)] = ...
+                 grads["b" + str(l)] = ...
+        learning_rate -- learning rate for gradient descent, scalar
+        beta -- Momentum hyperparameter, scalar
+        beta1 -- Exponential decay hyperparameter for the past gradients estimates (Adam optimizer), scalar
+        beta2 -- Exponential decay hyperparameter for the past squared gradients estimates (Adam optimizer), scalar
+        epsilon -- hyperparameter preventing division by zero in Adam updates, scalar
+        optimizer -- optimizer mode, stored as a text string: "gd", "momentum" or "adam"
+        """
+
         if optimizer == "gd":
             self.W, self.b = update_parameters_with_gd(self.W, self.b, grads,
                                                        learning_rate=learning_rate)
@@ -549,6 +572,11 @@ class MultiLayerPerceptron:
         mini_batch_size -- the size of a mini batch, integer (use a power of 2)
         lambd -- regularization hyper-parameter (L2 regularization), scalar
         keep_prob -- probability of keeping a neuron active during drop-out, scalar
+        optimizer -- optimizer mode, stored as a text string: "gd", "momentum" or "adam"
+        beta -- Momentum hyperparameter, scalar
+        beta1 -- Exponential decay hyperparameter for the past gradients estimates (Adam optimizer), scalar
+        beta2 -- Exponential decay hyperparameter for the past squared gradients estimates (Adam optimizer), scalar
+        epsilon -- hyperparameter preventing division by zero in Adam updates, scalar
         print_cost -- if True, print the cost every 1000 iterations
         display -- if True, display the cost into a graph
 
@@ -559,9 +587,9 @@ class MultiLayerPerceptron:
 
         costs = []
         seed = 1
-        self.adam_counter = 0
         self.regularization_lambda = lambd
         self.keep_prob = keep_prob
+        self.adam_counter = 0
 
         # Initizalize the optimizer
         self.initialize_optimizer(optimizer=optimizer, beta=beta, beta1=beta1, beta2=beta2, epsilon=epsilon)

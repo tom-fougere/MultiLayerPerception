@@ -2,6 +2,7 @@ import scipy.io
 from NeuralNetwork import *
 import matplotlib.pyplot as plt
 import numpy as np
+import sklearn.datasets
 
 DISPLAY_DATA = False
 
@@ -21,6 +22,64 @@ def test_xor():
     if DISPLAY_DATA:
         plt.figure()
         plot_decision_boundary(lambda x: mlp_xor.predict(x.T, [0.5]), X, Y, margin=0.2)
+        plt.show()
+
+
+def test_data():
+    data = scipy.io.loadmat('test_data.mat')
+
+    X = data['X'].T
+    Y = data['y'].T
+
+    mlp = MultiLayerPerceptron([2, 20, 3, 1])
+
+    _, _, costs = mlp.train(X, Y, learning_rate=0.7, mini_batch_size=64,
+                            display=False, optimizer="gd", num_epochs=10000)
+    assert (costs[-1] < costs[0])
+
+    if DISPLAY_DATA:
+        plt.figure()
+        plot_decision_boundary(lambda x: mlp.predict(x.T, [0.5]), X, Y, margin=0.2)
+        plt.show()
+
+
+def test_optimizer():
+
+    train_X, train_Y = sklearn.datasets.make_moons(n_samples=300, noise=.2)
+    X = train_X.T
+    Y = train_Y.reshape((1, train_Y.shape[0]))
+
+    mlp_gd = MultiLayerPerceptron([2, 5, 2, 1])
+    _, _, costs_gd = mlp_gd.train(X, Y, learning_rate=0.0007, mini_batch_size=64,
+                                  display=False, optimizer="gd",
+                                  beta=0.9, beta1=0.9, beta2=0.999, epsilon=1e-8, num_epochs=8000)
+
+    mlp_momentum = MultiLayerPerceptron([2, 5, 2, 1])
+    _, _, costs_momentum = mlp_momentum.train(X, Y, learning_rate=0.0007, mini_batch_size=64,
+                                              display=False, optimizer="momentum",
+                                              beta=0.9, beta1=0.9, beta2=0.999, epsilon=1e-8, num_epochs=8000)
+
+    mlp_adam = MultiLayerPerceptron([2, 5, 2, 1])
+    _, _, costs_adam = mlp_adam.train(X, Y, learning_rate=0.0007, mini_batch_size=64,
+                                      display=False, optimizer="adam",
+                                      beta=0.9, beta1=0.9, beta2=0.999, epsilon=1e-8, num_epochs=8000)
+
+    assert (costs_gd[-1] < costs_gd[0])
+    assert (costs_momentum[-1] < costs_momentum[0])
+    assert (costs_adam[-1] < costs_adam[0])
+    assert (costs_adam[-1] < costs_momentum[-1] < costs_gd[0])
+
+    if DISPLAY_DATA:
+        plt.figure()
+        plt.subplot(131)
+        plot_decision_boundary(lambda x: mlp_gd.predict(x.T, [0.5]), X, Y, margin=0.2)
+        plt.title('Gradient descent')
+        plt.subplot(132)
+        plot_decision_boundary(lambda x: mlp_momentum.predict(x.T, [0.5]), X, Y, margin=0.2)
+        plt.title('Momentum')
+        plt.subplot(133)
+        plot_decision_boundary(lambda x: mlp_adam.predict(x.T, [0.5]), X, Y, margin=0.2)
+        plt.title('Adam')
         plt.show()
 
 
@@ -200,11 +259,13 @@ def plot_decision_boundary(model, X, y, margin=1.):
 
 if __name__ == '__main__':
 
-    test_initialization_weights()
-    test_dropout_forward()
-    test_dropout_backward()
+    # test_initialization_weights()
+    # test_dropout_forward()
+    # test_dropout_backward()
     # test_minibatch_subfunction()
     # test_xor()
+    test_data()
+    # test_optimizer()
     # test_regularization()
     # test_dropout()
     # test_minibatch()
